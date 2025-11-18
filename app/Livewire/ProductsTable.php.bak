@@ -1,0 +1,92 @@
+<?php
+
+namespace App\Livewire;
+
+use App\Models\Product;
+use Livewire\Component;
+use Livewire\WithPagination;
+
+class ProductsTable extends Component
+{
+    use WithPagination;
+
+    protected string $paginationTheme = 'bootstrap';
+
+    public string $search = '';
+    public string $sortField = 'name';
+    public string $sortDirection = 'asc';
+    public int $perPage = 10;
+    public int $page = 1;
+    public bool $lowStockOnly = false;
+    public string $minPrice = '';
+    public string $maxPrice = '';
+
+    protected $queryString = [
+        'search' => ['except' => ''],
+        'sortField' => ['except' => 'name'],
+        'sortDirection' => ['except' => 'asc'],
+        'perPage' => ['except' => 10],
+        'lowStockOnly' => ['except' => false],
+        'minPrice' => ['except' => ''],
+        'maxPrice' => ['except' => ''],
+        'page' => ['except' => 1],
+    ];
+
+    // no mount needed
+
+    public function updatingSearch(): void { $this->resetPage(); }
+    public function updatingPerPage(): void { $this->resetPage(); }
+    public function updatingLowStockOnly(): void { $this->resetPage(); }
+    public function updatingMinPrice(): void { $this->resetPage(); }
+    public function updatingMaxPrice(): void { $this->resetPage(); }
+
+    public function sortBy(string $field): void
+    {
+        if ($this->sortField === $field) {
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortField = $field;
+            $this->sortDirection = 'asc';
+        }
+        $this->resetPage();
+    }
+
+    public function getProductsProperty()
+    {
+        $query = Product::query()
+            ->with('supplier')
+            ->when($this->search, function ($q) {
+                $s = trim($this->search);
+                $q->where(function ($qq) use ($s) {
+                    $qq->where('name', 'like', "%{$s}%")
+                        ->orWhere('sku', 'like', "%{$s}%");
+                });
+            })
+            ->when($this->lowStockOnly, function ($q) {
+                $q->whereNotNull('min_stock')->whereColumn('stock', '<=', 'min_stock');
+            })
+            ->when($this->minPrice !== '', function ($q) {
+                $q->where('sale_price', '>=', (float) $this->minPrice);
+            })
+            ->when($this->maxPrice !== '', function ($q) {
+                $q->where('sale_price', '<=', (float) $this->maxPrice);
+            });
+
+        if ($this->sortField === 'supplier') {
+            $query->leftJoin('suppliers', 'suppliers.id', '=', 'products.supplier_id')
+                ->select('products.*')
+                ->orderBy('suppliers.name', $this->sortDirection);
+        } else {
+            $query->orderBy($this->sortField, $this->sortDirection);
+        }
+
+        return $query->paginate($this->perPage);
+    }
+
+    public function render()
+    {
+        return view('livewire.products-table', [
+            'products' => $this->products,
+        ]);
+    }
+}

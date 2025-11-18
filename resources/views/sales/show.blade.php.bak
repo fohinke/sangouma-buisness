@@ -1,0 +1,92 @@
+@extends('layouts.master')
+@section('title','Vente ' . $sale->code)
+@section('content')
+<div>
+  <h1>Vente {{ $sale->code }}</h1>
+  @include('components.flash')
+  <div class="mb-3"><strong>Client:</strong> {{ $sale->client->name }} | <strong>Date:</strong> {{ optional($sale->sold_at)->format('Y-m-d') }} | <strong>Statut:</strong> {{ $sale->status }}</div>
+
+  <h4>Articles</h4>
+  <table class="table table-sm table-hover align-middle">
+    <thead><tr><th>Produit</th><th>Qté</th><th>Livré</th><th>PU</th><th>Sous-total</th></tr></thead>
+    <tbody>
+      @foreach($sale->items as $it)
+        <tr>
+          <td>{{ $it->product->name }}</td>
+          <td>{{ $it->qty }}</td>
+          <td>{{ $it->delivered_qty }}</td>
+          <td>{{ number_format($it->unit_price,2,',',' ') }}</td>
+          <td>{{ number_format($it->subtotal,2,',',' ') }}</td>
+        </tr>
+      @endforeach
+    </tbody>
+  </table>
+  <div class="mb-3"><strong>Total:</strong> {{ number_format($sale->total_ttc,2,',',' ') }}</div>
+
+  <div class="row g-3">
+    <div class="col-md-6">
+      <h4>Paiements</h4>
+      <p><strong>Total payé:</strong> {{ number_format($paid,2,',',' ') }} — <strong>Reste:</strong> {{ number_format($balance,2,',',' ') }}</p>
+      <form id="sale-payment-form" method="post" action="{{ route('sales.payments.store',$sale) }}" class="row g-2">@csrf
+        <div class="col-md-4">
+          <input id="sale-amount" type="number" step="0.01" name="amount" class="form-control" placeholder="Montant" required max="{{ $balance }}">
+        </div>
+        <div class="col-md-4"><input type="date" name="paid_at" class="form-control" value="{{ now()->format('Y-m-d') }}" required></div>
+        <div class="col-md-4"><input name="method" class="form-control" placeholder="Méthode"></div>
+        <div class="col-12"><input name="notes" class="form-control" placeholder="Notes"></div>
+        <div class="col-12">
+          <small id="saleAmountError" class="text-danger d-none">Montant supérieur au reste à payer ({{ number_format($balance,2,',',' ') }}).</small>
+        </div>
+        <div class="col-12"><button id="sale-payment-submit" class="btn btn-primary">Ajouter paiement</button> <a class="btn btn-outline-secondary" href="{{ route('sales.invoice',$sale) }}">Facture PDF</a> <a class="btn btn-outline-secondary" href="{{ route('sales.delivery-note',$sale) }}">Bon de livraison</a></div>
+      </form>
+    </div>
+    <div class="col-md-6">
+      <h4>Livraison</h4>
+      <form method="post" action="{{ route('sales.deliver',$sale) }}">@csrf
+        <table class="table table-sm">
+          <thead><tr><th>Produit</th><th>À livrer</th><th>Qté</th></tr></thead>
+          <tbody>
+            @foreach($sale->items as $it)
+              @php $remaining = $it->qty - $it->delivered_qty; @endphp
+              <tr>
+                <td>{{ $it->product->name }}</td>
+                <td>{{ $remaining }}</td>
+                <td>
+                  <input type="hidden" name="items[{{ $loop->index }}][item_id]" value="{{ $it->id }}">
+                  <input type="number" name="items[{{ $loop->index }}][qty]" class="form-control" min="0" max="{{ $remaining }}" value="0">
+                </td>
+              </tr>
+            @endforeach
+          </tbody>
+        </table>
+        <div class="row g-2">
+          <div class="col-md-6"><label class="form-label">Date</label><input type="date" name="delivered_at" class="form-control" value="{{ now()->format('Y-m-d') }}"></div>
+          <div class="col-md-6"><label class="form-label">Transporteur</label><input name="carrier" class="form-control"></div>
+        </div>
+        <div class="mt-2"><button class="btn btn-primary">Enregistrer livraison</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+@endsection
+@push('body')
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const form = document.getElementById('sale-payment-form');
+  if(!form) return;
+  const amount = form.querySelector('input[name="amount"]');
+  const submit = document.getElementById('sale-payment-submit');
+  const max = parseFloat(amount.getAttribute('max') || '0');
+  const err = document.getElementById('saleAmountError');
+  const validate = () => {
+    const val = parseFloat(amount.value || '0');
+    const invalid = val > max;
+    amount.classList.toggle('is-invalid', invalid);
+    if (err) err.classList.toggle('d-none', !invalid);
+    if (submit) submit.disabled = invalid;
+  };
+  amount.addEventListener('input', validate);
+  validate();
+});
+</script>
+@endpush
