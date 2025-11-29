@@ -25,7 +25,7 @@
             <div class="fw-semibold">{{ optional($sale->sold_at)->format('Y-m-d') }}</div>
           </div>
           <div>
-            <div class="text-muted small">Statut</div>
+            <div class="text-muted small">Statut paiement</div>
             @include('components.status-badge', ['value' => $sale->status])
           </div>
           <div>
@@ -252,4 +252,3 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 @endpush
-

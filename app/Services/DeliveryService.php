@@ -31,9 +31,13 @@ class DeliveryService
             foreach ($items as $row) {
                 $item = PurchaseOrderItem::lockForUpdate()->findOrFail($row['item_id']);
                 $delta = (int) $row['qty'];
-                if ($delta < 0) throw new InvalidArgumentException('Quantité invalide');
+                if ($delta < 0) {
+                    throw new InvalidArgumentException('Quantité invalide');
+                }
                 $remaining = $item->qty - $item->received_qty;
-                if ($delta > $remaining) throw new InvalidArgumentException('Réception dépasse le restant');
+                if ($delta > $remaining) {
+                    throw new InvalidArgumentException('Réception dépasse le restant');
+                }
 
                 if ($delta > 0) {
                     $item->received_qty += $delta;
@@ -42,14 +46,11 @@ class DeliveryService
                 }
             }
 
-            // Statut livraison
+            // Statut livraison / réception
             $allReceived = $order->items()->whereColumn('received_qty', '<', 'qty')->doesntExist();
             if ($allReceived) {
                 $order->delivered_at = $date;
-                // On conserve le statut de paiement, mais indique livrée
-                if ($order->status !== 'payee') {
-                    $order->status = 'livree';
-                }
+                // Ne pas modifier ici le statut de paiement (status)
                 $order->save();
             }
         });
@@ -67,9 +68,13 @@ class DeliveryService
             foreach ($items as $row) {
                 $item = SaleItem::lockForUpdate()->findOrFail($row['item_id']);
                 $delta = (int) $row['qty'];
-                if ($delta < 0) throw new InvalidArgumentException('Quantité invalide');
+                if ($delta < 0) {
+                    throw new InvalidArgumentException('Quantité invalide');
+                }
                 $remaining = $item->qty - $item->delivered_qty;
-                if ($delta > $remaining) throw new InvalidArgumentException('Livraison dépasse le restant');
+                if ($delta > $remaining) {
+                    throw new InvalidArgumentException('Livraison dépasse le restant');
+                }
 
                 if ($delta > 0) {
                     $this->stock->decreaseStock($item->product, $delta, 'sale_delivery');
@@ -82,13 +87,14 @@ class DeliveryService
             if ($allDelivered) {
                 $sale->delivery_status = 'livree';
                 $sale->delivered_at = $date;
-                if ($sale->status !== 'payee') {
-                    $sale->status = 'livree';
-                }
             } else {
                 $sale->delivery_status = 'en_cours';
             }
-            if ($carrier) $sale->carrier = $carrier;
+
+            if ($carrier) {
+                $sale->carrier = $carrier;
+            }
+
             $sale->save();
         });
     }

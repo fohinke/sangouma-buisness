@@ -24,7 +24,7 @@
         </div>
         <div class="col-md-3">
           <select class="form-select" wire:model.live="status">
-            <option value="">Statut (tous)</option>
+            <option value="">Statut paiement (tous)</option>
             <option value="en_attente">En attente</option>
             <option value="partiellement_payee">Partiellement payée</option>
             <option value="payee">Payée</option>
@@ -78,7 +78,7 @@
                 <i class="bi bi-caret-{{ $sortDirection==='asc' ? 'up' : 'down' }}-fill text-muted"></i>
               @endif
             </th>
-            <th>Statut</th>
+            <th>Statut paiement</th>
             <th>Livraison</th>
             <th class="text-end">Total TTC (GNF)</th>
             <th class="text-end">Payé (GNF)</th>
@@ -122,4 +122,3 @@
     </div>
   </div>
 </div>
-
