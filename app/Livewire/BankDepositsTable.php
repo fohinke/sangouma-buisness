@@ -2,43 +2,41 @@
 
 namespace App\Livewire;
 
-use App\Models\Client;
-use App\Models\ClientCredit;
+use App\Models\BankDeposit;
 use Carbon\Carbon;
-use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-class ClientCreditsTable extends Component
+class BankDepositsTable extends Component
 {
     use WithPagination;
 
     protected string $paginationTheme = 'bootstrap';
 
     public string $search = '';
-    public string $sortField = 'credited_at';
+    public ?string $from = null;
+    public ?string $to = null;
+    public string $sortField = 'deposited_at';
     public string $sortDirection = 'desc';
     public int $perPage = 15;
     public int $page = 1;
-    public array $clients = [];
-
-    // Modal state + form fields
     public bool $showModal = false;
     public int $modalKey = 0;
-    public ?int $client_id = null;
-    public string $client_name = '';
-    public string $amount = '';
-    public ?string $credited_at = null;
-    public string $method = '';
-    public string $notes = '';
 
-    protected $listeners = [
-        'clientSelected' => 'setClient',
-    ];
+    // Form fields
+    public ?string $reference = null;
+    public string $bank_name = '';
+    public ?string $account_number = null;
+    public string $amount = '';
+    public ?string $deposited_at = null;
+    public ?string $method = null;
+    public ?string $notes = null;
 
     protected $queryString = [
         'search' => ['except' => ''],
-        'sortField' => ['except' => 'credited_at'],
+        'from' => ['except' => null],
+        'to' => ['except' => null],
+        'sortField' => ['except' => 'deposited_at'],
         'sortDirection' => ['except' => 'desc'],
         'perPage' => ['except' => 15],
         'page' => ['except' => 1],
@@ -46,11 +44,12 @@ class ClientCreditsTable extends Component
 
     public function mount(): void
     {
-        $this->credited_at = now()->format('Y-m-d\\TH:i');
-        $this->clients = Client::orderBy('name')->pluck('name', 'id')->toArray();
+        $this->deposited_at = now()->format('Y-m-d\\TH:i');
     }
 
     public function updatingSearch(): void { $this->resetPage(); }
+    public function updatingFrom(): void { $this->resetPage(); }
+    public function updatingTo(): void { $this->resetPage(); }
     public function updatingPerPage(): void { $this->resetPage(); }
 
     public function sortBy(string $field): void
@@ -64,37 +63,52 @@ class ClientCreditsTable extends Component
         $this->resetPage();
     }
 
-    public function getCreditsProperty()
+    private function baseQuery()
     {
-        $query = ClientCredit::query()
-            ->with('client')
-            ->withSum('refunds as refunded_amount', 'amount')
+        return BankDeposit::query()
             ->when($this->search, function ($q) {
                 $s = trim($this->search);
                 $q->where(function ($qq) use ($s) {
-                    $qq->whereHas('client', fn($c) => $c->where('name', 'like', "%{$s}%"))
+                    $qq->where('reference', 'like', "%{$s}%")
+                        ->orWhere('bank_name', 'like', "%{$s}%")
+                        ->orWhere('account_number', 'like', "%{$s}%")
                         ->orWhere('method', 'like', "%{$s}%")
                         ->orWhere('notes', 'like', "%{$s}%");
                 });
+            })
+            ->when($this->from, function ($q) {
+                $from = Carbon::parse($this->from)->startOfDay();
+                $q->where('deposited_at', '>=', $from);
+            })
+            ->when($this->to, function ($q) {
+                $to = Carbon::parse($this->to)->endOfDay();
+                $q->where('deposited_at', '<=', $to);
             });
+    }
 
-        if ($this->sortField === 'client') {
-            $query->leftJoin('clients', 'clients.id', '=', 'client_credits.client_id')
-                ->orderBy('clients.name', $this->sortDirection)
-                ->select('client_credits.*');
-        } else {
-            $query->orderBy($this->sortField, $this->sortDirection);
-        }
+    public function getDepositsProperty()
+    {
+        $query = $this->baseQuery();
+
+        $query->orderBy($this->sortField, $this->sortDirection)
+            ->orderByDesc('id');
 
         return $query->paginate($this->perPage);
+    }
+
+    public function getTotalAmountProperty(): float
+    {
+        return (float) ($this->baseQuery()->sum('amount') ?? 0);
     }
 
     protected function rules(): array
     {
         return [
-            'client_id' => ['required','integer','exists:clients,id'],
+            'reference' => ['nullable','string','max:100','unique:bank_deposits,reference'],
+            'bank_name' => ['required','string','max:255'],
+            'account_number' => ['nullable','string','max:255'],
             'amount' => ['required','numeric','min:0.01'],
-            'credited_at' => ['nullable','date'],
+            'deposited_at' => ['nullable','date'],
             'method' => ['nullable','string','max:100'],
             'notes' => ['nullable','string'],
         ];
@@ -102,12 +116,13 @@ class ClientCreditsTable extends Component
 
     private function resetForm(): void
     {
-        $this->client_id = null;
-        $this->client_name = '';
+        $this->reference = null;
+        $this->bank_name = '';
+        $this->account_number = null;
         $this->amount = '';
-        $this->credited_at = now()->format('Y-m-d\\TH:i');
-        $this->method = '';
-        $this->notes = '';
+        $this->deposited_at = now()->format('Y-m-d\\TH:i');
+        $this->method = null;
+        $this->notes = null;
     }
 
     public function openCreate(): void
@@ -122,31 +137,25 @@ class ClientCreditsTable extends Component
         $this->showModal = false;
     }
 
-    public function resetClient(): void
+    public function saveDeposit(): void
     {
-        $this->client_id = null;
-        $this->client_name = '';
-    }
+        $this->amount = $this->normalizeAmount($this->amount);
+        $data = $this->validate();
 
-    public function updatedClientId($value): void
-    {
-        $id = (int) $value;
-        $this->client_id = $id > 0 ? $id : null;
-        $this->client_name = $this->client_id && isset($this->clients[$this->client_id])
-            ? (string) $this->clients[$this->client_id]
-            : '';
-        $this->resetErrorBag('client_id');
-    }
+        BankDeposit::create([
+            'reference' => $data['reference'] ?? null,
+            'bank_name' => $data['bank_name'],
+            'account_number' => $data['account_number'] ?? null,
+            'amount' => $data['amount'],
+            'deposited_at' => isset($data['deposited_at']) ? Carbon::parse($data['deposited_at']) : now(),
+            'method' => $data['method'] ?? null,
+            'notes' => $data['notes'] ?? null,
+        ]);
 
-    #[On('clientSelected')]
-    public function setClient(array $client): void
-    {
-        $this->client_id = isset($client['id']) ? (int) $client['id'] : null;
-        $this->client_name = (string) ($client['name'] ?? '');
-        if ($this->client_id && !array_key_exists($this->client_id, $this->clients)) {
-            $this->clients = Client::orderBy('name')->pluck('name', 'id')->toArray();
-        }
-        $this->resetErrorBag('client_id');
+        session()->flash('success', 'Depot bancaire enregistre.');
+        $this->showModal = false;
+        $this->resetForm();
+        $this->resetPage();
     }
 
     public function updatedAmount($value): void
@@ -181,50 +190,20 @@ class ClientCreditsTable extends Component
         return $this->formatNumber($num).' GNF';
     }
 
-    public function saveCredit(): void
-    {
-        $this->amount = $this->normalizeAmount($this->amount) ?? '';
-        $data = $this->validate();
-
-        \Log::info('client credit save start', ['data' => $data]);
-
-        ClientCredit::create([
-            'client_id' => $data['client_id'],
-            'amount' => $data['amount'],
-            'remaining_amount' => $data['amount'],
-            'credited_at' => isset($data['credited_at']) ? Carbon::parse($data['credited_at']) : now(),
-            'method' => $data['method'] ?? null,
-            'notes' => $data['notes'] ?? null,
-        ]);
-
-        \Log::info('client credit saved');
-
-        session()->flash('success', 'Credit ajoute.');
-        $this->showModal = false;
-        $this->resetForm();
-        $this->resetPage();
-    }
-
-    public function render()
-    {
-        return view('livewire.client-credits-table', [
-            'credits' => $this->credits,
-            'amountPreview' => $this->amountPreview,
-        ]);
-    }
-
     private function normalizeAmount(?string $value): ?string
     {
         if ($value === null) {
             return null;
         }
 
+        // Remove spaces and non-number separators, keep digits, dots, commas, minus
         $clean = preg_replace('/[^0-9,.\-]/', '', $value);
         if ($clean === null) {
             return null;
         }
         $clean = str_replace(',', '.', str_replace(' ', '', $clean));
 
+        // If multiple dots, keep the last as decimal separator
         $dotCount = substr_count($clean, '.');
         if ($dotCount > 1) {
             $parts = explode('.', $clean);
@@ -238,5 +217,14 @@ class ClientCreditsTable extends Component
     private function formatNumber(float $num): string
     {
         return number_format($num, 0, ',', ' ');
+    }
+
+    public function render()
+    {
+        return view('livewire.bank-deposits-table', [
+            'deposits' => $this->deposits,
+            'totalAmount' => $this->totalAmount,
+            'amountPreview' => $this->amountPreview,
+        ]);
     }
 }

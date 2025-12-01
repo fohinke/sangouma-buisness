@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\Sale;
 use App\Services\SequenceService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -40,7 +41,7 @@ class SalesCreate extends Component
             'product_id' => (int) ($product['id'] ?? 0),
             'name' => (string) ($product['name'] ?? 'Produit'),
             'qty' => 1,
-            'unit_price' => (float) ($product['sale_price'] ?? 0),
+            'unit_price' => $this->formatNumber((float) ($product['sale_price'] ?? 0)),
         ];
         $this->recalc();
     }
@@ -54,10 +55,13 @@ class SalesCreate extends Component
 
     public function updatedItems(): void
     {
-        // Normalise les entrées
+        // Normalise et reformate chaque ligne (PU sans décimales)
         foreach ($this->items as $i => $row) {
-            $this->items[$i]['qty'] = max(1, (int) ($row['qty'] ?? 1));
-            $this->items[$i]['unit_price'] = max(0, (float) ($row['unit_price'] ?? 0));
+            $qty = max(1, (int) ($row['qty'] ?? 1));
+            $price = $this->normalizeAmount($row['unit_price'] ?? null);
+            $price = $price !== null && $price !== '' ? max(0, (float) $price) : 0.0;
+            $this->items[$i]['qty'] = $qty;
+            $this->items[$i]['unit_price'] = $this->formatNumber($price);
         }
         $this->recalc();
     }
@@ -65,17 +69,17 @@ class SalesCreate extends Component
     private function recalc(): void
     {
         $t = 0.0;
-        foreach ($this->items as $row) {
+        foreach ($this->sanitizedItems() as $row) {
             $t += ((int)($row['qty'] ?? 0)) * ((float)($row['unit_price'] ?? 0));
         }
         $this->total = $t;
     }
 
-    private function validateStock(): void
+    private function validateStock(array $sanitizedItems): void
     {
         // Agrège les quantités par produit et compare au stock courant
         $requested = [];
-        foreach ($this->items as $row) {
+        foreach ($sanitizedItems as $row) {
             $pid = (int)($row['product_id'] ?? 0);
             if ($pid <= 0) { continue; }
             $requested[$pid] = ($requested[$pid] ?? 0) + (int)($row['qty'] ?? 0);
@@ -103,7 +107,13 @@ class SalesCreate extends Component
     public function save(SequenceService $seq)
     {
         $this->resetErrorBag();
-        $this->validate(
+        $sanitizedItems = $this->sanitizedItems();
+
+        $validator = Validator::make(
+            [
+                'client_id' => $this->client_id,
+                'items' => $sanitizedItems,
+            ],
             [
                 'client_id' => 'required|exists:clients,id',
                 'items' => 'required|array|min:1',
@@ -129,13 +139,18 @@ class SalesCreate extends Component
             ]
         );
 
-        $this->validateStock();
+        if ($validator->fails()) {
+            $this->setErrorBag($validator->errors());
+            return;
+        }
+
+        $this->validateStock($sanitizedItems);
         if ($this->getErrorBag()->any()) {
             // Erreurs de stock présentes : rester sur la page et afficher les messages.
             return;
         }
 
-        DB::transaction(function () use ($seq) {
+        DB::transaction(function () use ($seq, $sanitizedItems) {
             $code = $seq->next('INV');
             $sale = Sale::create([
                 'client_id' => $this->client_id,
@@ -148,7 +163,7 @@ class SalesCreate extends Component
             ]);
 
             $total = 0.0;
-            foreach ($this->items as $row) {
+            foreach ($sanitizedItems as $row) {
                 $qty = (int) $row['qty'];
                 $up = (float) $row['unit_price'];
                 $subtotal = $qty * $up;
@@ -171,5 +186,48 @@ class SalesCreate extends Component
     {
         return view('livewire.sales-create');
     }
-}
 
+    private function sanitizedItems(): array
+    {
+        $sanitized = [];
+        foreach ($this->items as $row) {
+            $qty = max(1, (int) ($row['qty'] ?? 1));
+            $price = $this->normalizeAmount($row['unit_price'] ?? null);
+            $price = $price !== null && $price !== '' ? max(0, (float) $price) : 0.0;
+            $sanitized[] = [
+                'product_id' => (int) ($row['product_id'] ?? 0),
+                'name' => (string) ($row['name'] ?? ''),
+                'qty' => $qty,
+                'unit_price' => $price,
+            ];
+        }
+        return $sanitized;
+    }
+
+    private function normalizeAmount(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $clean = preg_replace('/[^0-9,.\-]/', '', $value);
+        if ($clean === null) {
+            return null;
+        }
+        $clean = str_replace(',', '.', str_replace(' ', '', $clean));
+
+        $dotCount = substr_count($clean, '.');
+        if ($dotCount > 1) {
+            $parts = explode('.', $clean);
+            $decimal = array_pop($parts);
+            $clean = implode('', $parts).'.'.$decimal;
+        }
+
+        return $clean;
+    }
+
+    private function formatNumber(float $num): string
+    {
+        return number_format($num, 0, ',', ' ');
+    }
+}

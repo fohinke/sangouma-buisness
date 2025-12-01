@@ -65,6 +65,10 @@ class ProductsTable extends Component
 
     public function updated(string $name): void
     {
+        // Montants: on laisse la validation au submit aprés normalisation pour éviter les erreurs de saisie formatée
+        if (in_array($name, ['purchase_price', 'sale_price'], true)) {
+            return;
+        }
         $this->validateOnly($name);
     }
 
@@ -128,7 +132,7 @@ class ProductsTable extends Component
         return [
             'name' => ['required', 'string', 'max:255'],
             'sku' => ['nullable', 'string', 'max:100'],
-            'supplier_id' => ['nullable', 'integer', 'exists:suppliers,id'],
+            'supplier_id' => ['required', 'integer', 'exists:suppliers,id'],
             'purchase_price' => ['nullable', 'numeric', 'min:0'],
             'sale_price' => ['nullable', 'numeric', 'min:0'],
             'stock' => ['nullable', 'integer', 'min:0'],
@@ -162,8 +166,8 @@ class ProductsTable extends Component
         $this->name = (string) $p->name;
         $this->sku = (string) ($p->sku ?? '');
         $this->supplier_id = $p->supplier_id ? (string) $p->supplier_id : '';
-        $this->purchase_price = $p->purchase_price !== null ? (string) (float) $p->purchase_price : '';
-        $this->sale_price = $p->sale_price !== null ? (string) (float) $p->sale_price : '';
+        $this->purchase_price = $p->purchase_price !== null ? $this->formatAmountDisplay((string) $p->purchase_price) : '';
+        $this->sale_price = $p->sale_price !== null ? $this->formatAmountDisplay((string) $p->sale_price) : '';
         $this->stock = $p->stock !== null ? (string) (int) $p->stock : '';
         $this->min_stock = $p->min_stock !== null ? (string) (int) $p->min_stock : '';
         $this->modalKey++;
@@ -208,11 +212,14 @@ class ProductsTable extends Component
 
     public function saveProduct(): void
     {
+        $this->purchase_price = $this->normalizeAmount($this->purchase_price);
+        $this->sale_price = $this->normalizeAmount($this->sale_price);
+
         $data = $this->validate();
         $payload = [
             'name' => $data['name'],
             'sku' => $data['sku'] ?? null,
-            'supplier_id' => isset($data['supplier_id']) && $data['supplier_id'] !== null && $data['supplier_id'] !== '' ? (int) $data['supplier_id'] : null,
+            'supplier_id' => (int) $data['supplier_id'],
             'purchase_price' => isset($data['purchase_price']) && $data['purchase_price'] !== null && $data['purchase_price'] !== '' ? (float) $data['purchase_price'] : null,
             'sale_price' => isset($data['sale_price']) && $data['sale_price'] !== null && $data['sale_price'] !== '' ? (float) $data['sale_price'] : null,
             'stock' => isset($data['stock']) && $data['stock'] !== null && $data['stock'] !== '' ? (int) $data['stock'] : null,
@@ -231,5 +238,46 @@ class ProductsTable extends Component
         $this->showModal = false;
         $this->resetForm();
     }
-}
 
+    public function updatedPurchasePrice($value): void
+    {
+        $this->purchase_price = $this->formatAmountDisplay($value);
+    }
+
+    public function updatedSalePrice($value): void
+    {
+        $this->sale_price = $this->formatAmountDisplay($value);
+    }
+
+    private function normalizeAmount(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $clean = preg_replace('/[^0-9,.\-]/', '', $value);
+        if ($clean === null) {
+            return null;
+        }
+        $clean = str_replace(',', '.', str_replace(' ', '', $clean));
+
+        $dotCount = substr_count($clean, '.');
+        if ($dotCount > 1) {
+            $parts = explode('.', $clean);
+            $decimal = array_pop($parts);
+            $clean = implode('', $parts).'.'.$decimal;
+        }
+
+        return $clean;
+    }
+
+    private function formatAmountDisplay(?string $value): string
+    {
+        $normalized = $this->normalizeAmount($value);
+        if ($normalized === null || $normalized === '') {
+            return '';
+        }
+        $num = round((float) $normalized, 0);
+        return number_format($num, 0, ',', ' ');
+    }
+}

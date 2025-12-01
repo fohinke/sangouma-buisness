@@ -104,7 +104,8 @@
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label">Montant (GNF)</label>
-            <input type="number" name="amount" step="0.01" min="0.01" max="{{ $remaining }}" class="form-control @error('amount') is-invalid @enderror" required value="{{ old('amount') }}">
+            <input type="text" name="amount" inputmode="decimal" data-money-helper="refund-amount-helper" class="form-control amount-input @error('amount') is-invalid @enderror" required value="{{ old('amount') }}">
+            <div class="form-text text-muted" id="refund-amount-helper"></div>
             @error('amount')<div class="invalid-feedback">{{ $message }}</div>@enderror
           </div>
           <div class="mb-3">

@@ -136,6 +136,10 @@ class SaleController extends Controller
 
     public function addPayment(Request $request, Sale $sale)
     {
+        $request->merge([
+            'amount' => $this->normalizeAmount($request->input('amount')),
+        ]);
+
         $validated = $request->validate([
             'amount' => 'required|numeric|min:0.01',
             'paid_at' => 'required|date',
@@ -230,5 +234,26 @@ class SaleController extends Controller
         };
         return response()->stream($callback, 200, $headers);
     }
-}
 
+    private function normalizeAmount(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $clean = preg_replace('/[^0-9,.\-]/', '', $value);
+        if ($clean === null) {
+            return null;
+        }
+        $clean = str_replace(',', '.', str_replace(' ', '', $clean));
+
+        $dotCount = substr_count($clean, '.');
+        if ($dotCount > 1) {
+            $parts = explode('.', $clean);
+            $decimal = array_pop($parts);
+            $clean = implode('', $parts).'.'.$decimal;
+        }
+
+        return $clean;
+    }
+}

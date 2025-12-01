@@ -3,6 +3,7 @@
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientCreditController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\BankDepositController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PurchaseOrderController;
@@ -30,6 +31,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('suppliers', SupplierController::class)->middleware('permission:manage suppliers');
     Route::resource('products', ProductController::class)->middleware('permission:manage products');
     Route::resource('clients', ClientController::class)->middleware('permission:manage sales');
+    Route::resource('bank-deposits', BankDepositController::class)->only(['index','create','store','show'])->middleware('permission:process payments');
     Route::resource('purchase-orders', PurchaseOrderController::class)->middleware('permission:manage purchases');
     Route::resource('sales', SaleController::class)->middleware('permission:manage sales');
     Route::get('users', [UserController::class, 'index'])->middleware('permission:manage users')->name('users.index');

@@ -31,7 +31,14 @@
     <thead><tr><th>Produit</th><th style="width:140px">Qté</th><th style="width:160px">PU</th><th style="width:160px">Sous-total</th><th style="width:60px"></th></tr></thead>
     <tbody>
       @foreach($items as $i => $row)
-        @php $prod = \App\Models\Product::find($row['product_id']); $stock = (int)($prod->stock ?? 0); @endphp
+        @php
+          $prod = \App\Models\Product::find($row['product_id']);
+          $stock = (int)($prod->stock ?? 0);
+          $rawPrice = $row['unit_price'] ?? 0;
+          $price = (float) str_replace(' ', '', str_replace(',', '.', $rawPrice));
+          $qty = (int)($row['qty'] ?? 0);
+          $st = $qty * $price;
+        @endphp
         <tr>
           <td>
             <div>{{ $row['name'] ?? ($prod->name ?? 'Produit') }}</div>
@@ -44,12 +51,12 @@
             @error('items.'.$i.'.qty') <div class="text-danger small">{{ $message }}</div> @enderror
           </td>
           <td>
-            <input type="number" step="0.01" class="form-control" wire:model.live="items.{{ $i }}.unit_price">
+            <input type="text" inputmode="decimal" class="form-control amount-input" data-money-helper="pu-helper-{{ $i }}" wire:model.live="items.{{ $i }}.unit_price">
+            <div class="form-text text-muted" id="pu-helper-{{ $i }}"></div>
             @error('items.'.$i.'.unit_price') <div class="text-danger small">{{ $message }}</div> @enderror
           </td>
           <td>
-            @php $st = ((int)($row['qty'] ?? 0))*((float)($row['unit_price'] ?? 0)); @endphp
-            <input class="form-control" value="{{ number_format($st,2,',',' ') }}" readonly>
+            <input class="form-control" value="{{ number_format($st,0,',',' ') }}" readonly>
           </td>
           <td>
             <button class="btn btn-sm btn-danger" type="button" onclick="if(!confirm('Supprimer cette ligne ?')) event.stopImmediatePropagation();" wire:click="removeItem({{ $i }})">x</button>

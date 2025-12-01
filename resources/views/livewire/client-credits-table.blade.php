@@ -75,7 +75,7 @@
               @endif
             </th>
             <th>Mode</th>
-           
+
             <th>Status</th>
             <th class="text-end">Actions</th>
           </tr>
@@ -156,7 +156,9 @@
               <div class="col-md-3">
                 <label class="form-label">Montant (GNF)</label>
                 <input type="text" inputmode="decimal" name="amount" id="amount-input-{{ $modalKey }}" data-money-helper="amount-helper-{{ $modalKey }}" class="form-control @error('amount') is-invalid @enderror amount-input" wire:model.live="amount" required>
-                <div class="form-text text-muted" id="amount-helper-{{ $modalKey }}"></div>
+                <div class="form-text text-muted" id="amount-helper-{{ $modalKey }}">
+                  @if($amountPreview) Aperçu: {{ $amountPreview }} @endif
+                </div>
                 @error('amount')<div class="invalid-feedback">{{ $message }}</div>@enderror
               </div>
               <div class="col-md-3">

@@ -39,6 +39,10 @@ class ClientCreditController extends Controller
 
     public function addRefund(Request $request, ClientCredit $client_credit)
     {
+        $request->merge([
+            'amount' => $this->normalizeAmount($request->input('amount')),
+        ]);
+
         $data = $request->validate([
             'amount' => ['required','numeric','min:0.01'],
             'refunded_at' => ['nullable','date'],
@@ -75,6 +79,10 @@ class ClientCreditController extends Controller
 
     public function store(Request $request)
     {
+        $request->merge([
+            'amount' => $this->normalizeAmount($request->input('amount')),
+        ]);
+
         $data = $request->validate([
             'client_id' => 'required|exists:clients,id',
             'amount' => 'required|numeric|min:0.01',
@@ -95,5 +103,27 @@ class ClientCreditController extends Controller
         });
 
         return redirect()->route('client-credits.index')->with('success', 'Credit enregistre.');
+    }
+
+    private function normalizeAmount(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $clean = preg_replace('/[^0-9,.\-]/', '', $value);
+        if ($clean === null) {
+            return null;
+        }
+        $clean = str_replace(',', '.', str_replace(' ', '', $clean));
+
+        $dotCount = substr_count($clean, '.');
+        if ($dotCount > 1) {
+            $parts = explode('.', $clean);
+            $decimal = array_pop($parts);
+            $clean = implode('', $parts).'.'.$decimal;
+        }
+
+        return $clean;
     }
 }
