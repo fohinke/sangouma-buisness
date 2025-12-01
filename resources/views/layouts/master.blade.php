@@ -10,13 +10,25 @@
   <style>
     :root { --navbar-h: 64px; }
     body { background: #f6f8fb; }
-    .sidebar { width: 260px; background: #0d1b2a; color: #fff; position: fixed; top: 0; bottom: 0; padding-top: 60px; }
-    .sidebar a { color: #cfd7e3; text-decoration: none; display: block; padding: .6rem 1rem; }
+    .navbar { background: linear-gradient(135deg, #0d1b2a, #123a63); box-shadow: 0 4px 16px rgba(0,0,0,.25); }
+    .navbar .nav-link { font-weight: 500; }
+    .navbar .nav-link:hover { color: #fff; }
+    .sidebar { width: 260px; background: linear-gradient(180deg, #0d1b2a 0%, #0f2238 60%, #102a44 100%); color: #fff; position: fixed; top: var(--navbar-h); bottom: 0; padding: 0 0 0; transition: transform .25s ease; z-index: 1050; }
+    .sidebar-header { padding: 12px 16px; display: flex; align-items: center; gap: 8px; color: #fff; font-weight: 700; letter-spacing: .2px; text-transform: uppercase; }
+    .sidebar a { color: #cfd7e3; text-decoration: none; display: block; padding: .6rem 1rem; font-weight: 600; letter-spacing: .1px; }
     .sidebar a:hover, .sidebar a.active { background: rgba(255,255,255,.08); color: #fff; }
-    .content-wrapper { margin-left: 260px; padding-top: calc(var(--navbar-h) + 48px); }
+    .content-wrapper { margin-left: 260px; padding-top: var(--navbar-h); }
     .toolbar { position: sticky; top: var(--navbar-h); z-index: 1020; background: #fff; padding: 10px 12px; border-bottom: 1px solid #e9ecef; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.04); border-radius: 8px; }
-    .navbar-brand { font-weight: 600; }
+    .navbar-brand { font-weight: 700; letter-spacing: .2px; }
     .card-kpi { border: 0; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.06); }
+    .sidebar-backdrop { display: none; }
+    @media (max-width: 991.98px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); }
+      .content-wrapper { margin-left: 0; padding-top: var(--navbar-h); }
+      .sidebar-backdrop { display: none; position: fixed; left: 0; right: 0; top: var(--navbar-h); bottom: 0; background: rgba(0,0,0,.35); z-index: 1045; }
+      .sidebar-backdrop.show { display: block; }
+    }
   </style>
   @stack('head')
   @vite(['resources/js/app.js'])
@@ -32,8 +44,9 @@
 <body>
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
     <div class="container-fluid">
-      <a class="navbar-brand" href="{{ url('/') }}"><i class="bi bi-shop"></i> Sangouma</a>
+      <a class="navbar-brand" href="{{ url('/') }}"><i class="bi bi-shop"></i> Sangouma Multi-service</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topnav"><span class="navbar-toggler-icon"></span></button>
+      <button class="btn btn-outline-light d-lg-none ms-2" type="button" id="sidebarToggle"><i class="bi bi-list"></i></button>
       <div class="collapse navbar-collapse" id="topnav">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
           <li class="nav-item"><a class="nav-link" href="{{ route('dashboard') }}"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
@@ -67,13 +80,15 @@
     </div>
   </nav>
 
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
   <aside class="sidebar">
+
     <div class="px-3 mb-2 text-uppercase small opacity-75">Navigation</div>
     <a href="{{ route('suppliers.index') }}" class="@if(request()->is('suppliers*')) active @endif"><i class="bi bi-truck"></i> Fournisseurs</a>
     <a href="{{ route('products.index') }}" class="@if(request()->is('products*')) active @endif"><i class="bi bi-box-seam"></i> Produits</a>
     <a href="{{ route('clients.index') }}" class="@if(request()->is('clients*')) active @endif"><i class="bi bi-people"></i> Clients</a>
-    <a href="{{ route('client-credits.index') }}" class="@if(request()->is('client-credits*')) active @endif"><i class="bi bi-wallet2"></i> Credit exception</a>
-    <a href="{{ Route::has('bank-deposits.index') ? route('bank-deposits.index') : '#' }}" class="@if(request()->is('bank-deposits*')) active @endif"><i class="bi bi-piggy-bank"></i> Depot bancaire</a>
+    <a href="{{ route('client-credits.index') }}" class="@if(request()->is('client-credits*')) active @endif"><i class="bi bi-wallet2"></i> Crédit exceptionnel</a>
+    <a href="{{ Route::has('bank-deposits.index') ? route('bank-deposits.index') : '#' }}" class="@if(request()->is('bank-deposits*')) active @endif"><i class="bi bi-piggy-bank"></i> Dépot bancaire</a>
     <a href="{{ route('purchase-orders.index') }}" class="@if(request()->is('purchase-orders*')) active @endif"><i class="bi bi-bag-check"></i> Commandes fournisseurs</a>
     <a href="{{ route('sales.index') }}" class="@if(request()->is('sales*')) active @endif"><i class="bi bi-cash-coin"></i> Ventes</a>
     @can('manage users')
@@ -157,6 +172,31 @@
       ids.forEach(id => {
         const el = document.getElementById(id);
         if (el && !el.dataset.dtApplied) { new DataTable(el); el.dataset.dtApplied = '1'; }
+      });
+      // Sidebar responsive toggle
+      const sidebar = document.querySelector('.sidebar');
+      const backdrop = document.getElementById('sidebarBackdrop');
+      const toggleBtn = document.getElementById('sidebarToggle');
+      const closeSidebar = () => {
+        sidebar?.classList.remove('open');
+        backdrop?.classList.remove('show');
+      };
+      const openSidebar = () => {
+        sidebar?.classList.add('open');
+        backdrop?.classList.add('show');
+      };
+      toggleBtn?.addEventListener('click', () => {
+        if (sidebar?.classList.contains('open')) {
+          closeSidebar();
+        } else {
+          openSidebar();
+        }
+      });
+      backdrop?.addEventListener('click', closeSidebar);
+      window.addEventListener('resize', () => {
+        if (window.innerWidth >= 992) {
+          closeSidebar();
+        }
       });
     });
   </script>
