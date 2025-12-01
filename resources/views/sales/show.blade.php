@@ -111,19 +111,19 @@
           </div>
           @can('process payments')
           @if($balance2 > 0)
-            <form id="sale-payment-form" method="post" action="{{ route('sales.payments.store',$sale) }}" class="row g-2">
+            <form id="sale-payment-form" method="post" action="{{ route('sales.payments.store',$sale) }}" class="row row-cols-1 row-cols-md-2 g-2">
               @csrf
-              <div class="col-6">
+              <div class="col">
                 <input id="sale-amount" type="text" inputmode="decimal" name="amount" class="form-control amount-input" data-money-helper="sale-amount-helper" placeholder="Montant" required max="{{ $balance2 }}">
                 <div class="form-text text-muted" id="sale-amount-helper"></div>
               </div>
-              <div class="col-6">
+              <div class="col">
                 <input type="date" name="paid_at" class="form-control" value="{{ now()->format('Y-m-d') }}" required>
               </div>
-              <div class="col-6">
+              <div class="col">
                 <input name="method" class="form-control" placeholder="Méthode">
               </div>
-              <div class="col-6">
+              <div class="col">
                 <input name="notes" class="form-control" placeholder="Notes">
               </div>
               <div class="col-12">
@@ -235,6 +235,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const form = document.getElementById('sale-payment-form');
   if (!form) return;
   const amount = form.querySelector('input[name="amount"]');
+  const helper = document.getElementById('sale-amount-helper');
   const submit = document.getElementById('sale-payment-submit');
   const max = parseFloat(amount.getAttribute('max') || '0');
   const err = document.getElementById('saleAmountError');
@@ -248,8 +249,20 @@ document.addEventListener('DOMContentLoaded', function () {
       submit.classList.toggle('d-none', invalid);
     }
   };
+  const formatMoney = (val) => {
+    if (val === undefined || val === null) return '';
+    const cleaned = String(val).replace(/\s+/g,'').replace(',', '.').replace(/[^0-9.-]/g,'');
+    const num = parseFloat(cleaned);
+    if (isNaN(num)) return '';
+    return num.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' GNF';
+  };
+  const handleInput = () => {
+    if (helper) helper.textContent = formatMoney(amount.value);
+    validate();
+  };
+  amount.addEventListener('input', handleInput);
   amount.addEventListener('input', validate);
-  validate();
+  handleInput();
 });
 </script>
 @endpush
