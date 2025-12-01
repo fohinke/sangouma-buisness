@@ -114,7 +114,8 @@
             <form id="sale-payment-form" method="post" action="{{ route('sales.payments.store',$sale) }}" class="row g-2">
               @csrf
               <div class="col-6">
-                <input id="sale-amount" type="number" step="0.01" name="amount" class="form-control" placeholder="Montant" required max="{{ $balance2 }}">
+                <input id="sale-amount" type="text" inputmode="decimal" name="amount" class="form-control amount-input" data-money-helper="sale-amount-helper" placeholder="Montant" required max="{{ $balance2 }}">
+                <div class="form-text text-muted" id="sale-amount-helper"></div>
               </div>
               <div class="col-6">
                 <input type="date" name="paid_at" class="form-control" value="{{ now()->format('Y-m-d') }}" required>

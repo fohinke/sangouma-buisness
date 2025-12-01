@@ -157,7 +157,7 @@
               <div class="col-md-6">
                 <label class="form-label">Fournisseur</label>
                 <select class="form-select @error('supplier_id') is-invalid @enderror" wire:model.blur="supplier_id">
-                  <option value="">— Aucun —</option>
+                  <option value="">Sélectionner un fournisseur</option>
                   @foreach($modalSupplierOptions as $opt)
                     <option value="{{ $opt['id'] }}">{{ $opt['name'] }}</option>
                   @endforeach
@@ -166,12 +166,14 @@
               </div>
               <div class="col-md-3">
                 <label class="form-label">Prix achat (GNF)</label>
-                <input type="number" step="0.01" class="form-control @error('purchase_price') is-invalid @enderror" wire:model.blur="purchase_price">
+                <input type="text" inputmode="decimal" class="form-control amount-input @error('purchase_price') is-invalid @enderror" wire:model.live="purchase_price" data-money-helper="purchase-helper-{{ $modalKey }}">
+                <div class="form-text text-muted" id="purchase-helper-{{ $modalKey }}"></div>
                 @error('purchase_price')<div class="invalid-feedback">{{ $message }}</div>@enderror
               </div>
               <div class="col-md-3">
                 <label class="form-label">Prix vente (GNF)</label>
-                <input type="number" step="0.01" class="form-control @error('sale_price') is-invalid @enderror" wire:model.blur="sale_price">
+                <input type="text" inputmode="decimal" class="form-control amount-input @error('sale_price') is-invalid @enderror" wire:model.live="sale_price" data-money-helper="sale-helper-{{ $modalKey }}">
+                <div class="form-text text-muted" id="sale-helper-{{ $modalKey }}"></div>
                 @error('sale_price')<div class="invalid-feedback">{{ $message }}</div>@enderror
               </div>
               <div class="col-md-3">
@@ -195,4 +197,3 @@
     </div>
   </div>
 </div>
-

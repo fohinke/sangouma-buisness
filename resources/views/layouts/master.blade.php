@@ -72,6 +72,8 @@
     <a href="{{ route('suppliers.index') }}" class="@if(request()->is('suppliers*')) active @endif"><i class="bi bi-truck"></i> Fournisseurs</a>
     <a href="{{ route('products.index') }}" class="@if(request()->is('products*')) active @endif"><i class="bi bi-box-seam"></i> Produits</a>
     <a href="{{ route('clients.index') }}" class="@if(request()->is('clients*')) active @endif"><i class="bi bi-people"></i> Clients</a>
+    <a href="{{ route('client-credits.index') }}" class="@if(request()->is('client-credits*')) active @endif"><i class="bi bi-wallet2"></i> Credit exception</a>
+    <a href="{{ Route::has('bank-deposits.index') ? route('bank-deposits.index') : '#' }}" class="@if(request()->is('bank-deposits*')) active @endif"><i class="bi bi-piggy-bank"></i> Depot bancaire</a>
     <a href="{{ route('purchase-orders.index') }}" class="@if(request()->is('purchase-orders*')) active @endif"><i class="bi bi-bag-check"></i> Commandes fournisseurs</a>
     <a href="{{ route('sales.index') }}" class="@if(request()->is('sales*')) active @endif"><i class="bi bi-cash-coin"></i> Ventes</a>
     @can('manage users')
@@ -99,10 +101,58 @@
   @livewireScripts
   @stack('body')
   @yield('body')
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-3gJwYp8p9dYwNpM8qKpIB+Sc8qZ8bK8a1sC3mG3Bz0o=" crossorigin="anonymous"></script>
   <script src="https://cdn.datatables.net/2.1.8/js/dataTables.js"></script>
   <script src="https://cdn.datatables.net/2.1.8/js/dataTables.bootstrap5.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function(){
+      if (!window.__moneyFormatterAttached) {
+        window.__moneyFormatterAttached = true;
+        const formatMoney = (val) => {
+          if (val === undefined || val === null) return '';
+          const cleaned = String(val).replace(/\s+/g,'').replace(',', '.').replace(/[^0-9.-]/g,'');
+          const num = parseFloat(cleaned);
+          if (isNaN(num)) return '';
+          return num.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' GNF';
+        };
+        const groupThousands = (digits) => digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        const formatAmountInputValue = (val) => {
+          if (val === undefined || val === null) return '';
+          const digits = String(val).replace(/[^0-9]/g, '');
+          if (!digits.length) return '';
+          return groupThousands(digits);
+        };
+        const attachMoneyHelpers = () => {
+          document.querySelectorAll('.amount-input[data-money-helper]').forEach(input => {
+            const helperId = input.getAttribute('data-money-helper');
+            const helper = helperId ? document.getElementById(helperId) : null;
+            const update = () => {
+              if (!helper) return;
+              helper.textContent = formatMoney(input.value);
+            };
+            if (!input.dataset.moneyBound) {
+              input.addEventListener('input', (e) => {
+                const caretEnd = input.selectionEnd;
+                input.value = formatAmountInputValue(input.value);
+                // Restore caret to end to avoid awkward jumps; good enough for desktop
+                if (document.activeElement === input && typeof caretEnd === 'number') {
+                  input.setSelectionRange(input.value.length, input.value.length);
+                }
+                update();
+              });
+              input.addEventListener('blur', () => {
+                input.value = formatAmountInputValue(input.value);
+                update();
+              });
+              input.dataset.moneyBound = '1';
+            }
+            update();
+          });
+        };
+        attachMoneyHelpers();
+        document.addEventListener('livewire:update', attachMoneyHelpers);
+        document.addEventListener('livewire:navigated', attachMoneyHelpers);
+      }
       const ids = ['salesTable','poTable'];
       ids.forEach(id => {
         const el = document.getElementById(id);
