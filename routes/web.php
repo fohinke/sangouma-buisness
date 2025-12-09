@@ -50,6 +50,7 @@ Route::middleware('auth')->group(function () {
         ->name('client-credits.refunds.store');
 
     // Actions specifique Achats
+    Route::post('purchase-orders/{purchase_order}/cancel', [PurchaseOrderController::class, 'cancel'])->middleware('permission:manage purchases')->name('purchase-orders.cancel');
     Route::post('purchase-orders/{purchase_order}/payments', [PurchaseOrderController::class, 'addPayment'])->middleware('permission:process payments')->name('purchase-orders.payments.store');
     
     Route::delete('purchase-orders/{purchase_order}/payments/{payment}', [PurchaseOrderController::class, 'removePayment'])->middleware('permission:process payments')->name('purchase-orders.payments.destroy');
@@ -61,6 +62,7 @@ Route::middleware('auth')->group(function () {
     
     Route::delete('sales/{sale}/payments/{payment}', [SaleController::class, 'removePayment'])->middleware('permission:process payments')->name('sales.payments.destroy');
     Route::post('sales/{sale}/deliver', [SaleController::class, 'deliver'])->name('sales.deliver');
+    Route::post('sales/{sale}/cancel', [SaleController::class, 'cancel'])->middleware('permission:manage sales')->name('sales.cancel');
     Route::get('sales/{sale}/invoice', [SaleController::class, 'invoice'])->name('sales.invoice');
     Route::get('sales/{sale}/delivery-note', [SaleController::class, 'deliveryNote'])->name('sales.delivery-note');
 
