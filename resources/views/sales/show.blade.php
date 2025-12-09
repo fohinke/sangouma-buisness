@@ -6,9 +6,21 @@
 
   <div class="d-flex align-items-center justify-content-between mb-3">
     <h1 class="h3 mb-0"><i class="bi bi-receipt"></i> Vente {{ $sale->code }}</h1>
-    <div class="btn-group">
-      <a class="btn btn-outline-secondary" href="{{ route('sales.invoice',$sale) }}"><i class="bi bi-filetype-pdf"></i> Facture</a>
-      <a class="btn btn-outline-secondary" href="{{ route('sales.delivery-note',$sale) }}"><i class="bi bi-truck"></i> Bon de livraison</a>
+    <div class="d-flex align-items-center gap-2">
+      <div class="btn-group">
+        <a class="btn btn-outline-secondary" href="{{ route('sales.invoice',$sale) }}"><i class="bi bi-filetype-pdf"></i> Facture</a>
+        <a class="btn btn-outline-secondary" href="{{ route('sales.delivery-note',$sale) }}"><i class="bi bi-truck"></i> Bon de livraison</a>
+      </div>
+      @can('manage sales')
+      @if($canCancel ?? false)
+        <form method="post" action="{{ route('sales.cancel', $sale) }}">
+          @csrf
+          <button class="btn btn-outline-danger" onclick="return confirm('Annuler cette vente ?');">
+            <i class="bi bi-x-circle"></i> Annuler
+          </button>
+        </form>
+      @endif
+      @endcan
     </div>
   </div>
 

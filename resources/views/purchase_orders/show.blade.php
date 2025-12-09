@@ -6,8 +6,20 @@
 
   <div class="d-flex align-items-center justify-content-between mb-3">
     <h1 class="h3 mb-0"><i class="bi bi-bag-check"></i> Commande {{ $order->code }}</h1>
-    <div class="btn-group">
-      <a class="btn btn-outline-secondary" href="{{ route('purchase-orders.invoice',$order) }}"><i class="bi bi-filetype-pdf"></i> Facture</a>
+    <div class="d-flex align-items-center gap-2">
+      <div class="btn-group">
+        <a class="btn btn-outline-secondary" href="{{ route('purchase-orders.invoice',$order) }}"><i class="bi bi-filetype-pdf"></i> Facture</a>
+      </div>
+      @can('manage purchases')
+      @if($canCancel ?? false)
+        <form method="post" action="{{ route('purchase-orders.cancel', $order) }}">
+          @csrf
+          <button class="btn btn-outline-danger" onclick="return confirm('Annuler cette commande ?');">
+            <i class="bi bi-x-circle"></i> Annuler
+          </button>
+        </form>
+      @endif
+      @endcan
     </div>
   </div>
 
@@ -287,4 +299,3 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 @endpush
-

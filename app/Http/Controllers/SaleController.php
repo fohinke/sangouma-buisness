@@ -131,6 +131,7 @@ class SaleController extends Controller
             'sale' => $sale,
             'paid' => $paid,
             'balance' => max(0, ($sale->total_ttc ?? 0) - $paid),
+            'canCancel' => (int) $sale->items->sum('delivered_qty') === 0 && !$sale->payments->count(),
         ]);
     }
 
@@ -167,6 +168,27 @@ class SaleController extends Controller
         }
         $payment->delete();
         return back()->with('success','Paiement supprimé.');
+    }
+
+    public function cancel(Request $request, Sale $sale)
+    {
+        $sale->load(['items','payments']);
+        $deliveredQty = (int) $sale->items->sum('delivered_qty');
+        $hasPayments = $sale->payments()->exists();
+
+        if ($deliveredQty > 0) {
+            return back()->withErrors(["Impossible d'annuler : des articles ont déjà été livrés."]);
+        }
+        if ($hasPayments) {
+            return back()->withErrors(["Impossible d'annuler : des paiements sont enregistrés."]);
+        }
+
+        DB::transaction(function () use ($sale) {
+            $sale->items()->delete();
+            $sale->delete();
+        });
+
+        return redirect()->route('sales.index')->with('success', 'Vente annulée.');
     }
 
     public function deliver(Request $request, Sale $sale)

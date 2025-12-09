@@ -106,6 +106,7 @@ class PurchaseOrderController extends Controller
             'order' => $purchase_order,
             'paid' => $paid,
             'balance' => max(0, ($purchase_order->total_ttc ?? 0) - $paid),
+            'canCancel' => (int) $purchase_order->items->sum('received_qty') === 0 && !$purchase_order->payments->count(),
         ]);
     }
 
@@ -138,6 +139,27 @@ class PurchaseOrderController extends Controller
         }
         $payment->delete();
         return back()->with('success','Paiement supprimé.');
+    }
+
+    public function cancel(Request $request, PurchaseOrder $purchase_order)
+    {
+        $purchase_order->load(['items','payments']);
+        $receivedQty = (int) $purchase_order->items->sum('received_qty');
+        $hasPayments = $purchase_order->payments()->exists();
+
+        if ($receivedQty > 0) {
+            return back()->withErrors(["Impossible d'annuler : des receptions ont deja ete enregistrees."]);
+        }
+        if ($hasPayments) {
+            return back()->withErrors(["Impossible d'annuler : des paiements sont enregistres."]);
+        }
+
+        DB::transaction(function () use ($purchase_order) {
+            $purchase_order->items()->delete();
+            $purchase_order->delete();
+        });
+
+        return redirect()->route('purchase-orders.index')->with('success', 'Commande annulee.');
     }
 
     public function receive(Request $request, PurchaseOrder $purchase_order)
